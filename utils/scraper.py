@@ -2,11 +2,15 @@ import requests
 import logging
 import os
 import pandas as pd
+import numpy as np
 from bs4 import BeautifulSoup
+import math
+
 
 def dir_check(directory):
     if not os.path.isdir(directory):
         os.makedirs(directory)
+
 
 class WebTable(object):
     def __init__(self, url):
@@ -59,12 +63,24 @@ class WebTable(object):
                 cols = pd.Series(cols)
                 self.df = self.df.append(cols, ignore_index=True)
 
-    def df_split_team_seed(self):
-        if self.df['Team'].str[:-1]
+    def df_remove_numbers(self):
+        self.df['Team'] = self.df['Team'].str.replace('\d+', '').str.strip()
+
+    def df_remove_period(self):
+        self.df['Team'] = self.df['Team'].str.replace('.', '')
+
+    def team_translation(self):
+        tt = pd.read_csv('raw/team_translate.csv')
+        self.df = self.df.merge(tt, on='Team', how='left')
+        self.df['Team_Name'] = np.where(self.df['Team_Name'].isnull(),
+                                        self.df['Team'], self.df['Team_Name'])
 
     def table_to_df(self):
         self.body_to_df()
         self.headers_to_df()
+        self.df_remove_numbers()
+        self.df_remove_period()
+        self.team_translation()
 
     def df_to_csv(self, file_path, file_name):
         logging.info('Writing df to ' + file_path + '/' + file_name)
