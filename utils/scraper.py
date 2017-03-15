@@ -4,7 +4,6 @@ import os
 import pandas as pd
 import numpy as np
 from bs4 import BeautifulSoup
-import math
 
 
 def dir_check(directory):
@@ -85,4 +84,4 @@ class WebTable(object):
     def df_to_csv(self, file_path, file_name):
         logging.info('Writing df to ' + file_path + '/' + file_name)
         dir_check(file_path)
-        self.df.to_csv(file_path + '/' + file_name + '.csv', index=False)
+        self.df.to_csv(file_path + '/' + file_name, index=False)
