@@ -2,7 +2,7 @@ import sys
 import logging
 import pandas as pd
 import numpy as np
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestRegressor
 from sklearn import linear_model
 import utils.scraper as scr
 
@@ -20,7 +20,7 @@ console.setFormatter(formatter)
 logging.getLogger('').addHandler(console)
 
 
-year = '2016'
+year = '2017'
 url_kp = 'http://kenpom.com/index.php?y={}'.format(year)
 table = scr.WebTable(url_kp)
 table.table_to_df()
@@ -33,7 +33,7 @@ df_teams = pd.read_csv('raw/teams.csv')
 
 df = pd.merge(df_kp, df_teams, how='left', on='Team_Name')
 
-df_result = pd.read_csv('raw/tourneydetailedresults.csv')
+df_result = pd.read_csv('raw/regularseasondetailedresults.csv')
 df_result_year = df_result[df_result['Season'] == int(year)]
 
 df_teams_w = df[:].copy()
@@ -46,30 +46,38 @@ df_result_year = pd.merge(df_result_year, df_teams_w, how='left',
 df_result_year = pd.merge(df_result_year, df_teams_l, how='left',
                           left_on='Lteam', right_on='LTeam_Id')
 
-y_values = ['Wscore', 'Lscore']
-x_values = ['WAdjEM', 'LAdjEM', 'WAdjO', 'LAdjO', 'WAdjD', 'LAdjD', 'WAdjT',
-            'LAdjT', 'WLuck', 'LLuck', 'WAdjEM', 'LAdjEM', 'WOppO', 'LOppO',
-            'WOppD', 'LOppD']
-mich_wins = np.array([[22.62, 22.10, 121.7, 124.8, 99.0, 102.7, 62.5, 69.9,
-                      -0.031, -0.056, 9.68, 13.97, 109.2, 111.6, 99.5, 97.6]])
+df_result_year_w = df_result_year[:].copy()
+df_result_year_w['Score'] = df_result_year_w['Wscore']
+df_result_year_w['Team'] = df_result_year_w['Wteam']
+df_result_year_l = df_result_year[:].copy()
+df_result_year_l['Score'] = df_result_year_l['Lscore']
+df_result_year_l['Team'] = df_result_year_l['Lteam']
+df_final_result_year = pd.DataFrame(columns=df_result_year_w.columns)
+df_final_result_year = df_final_result_year.append(df_result_year_w)
+df_final_result_year = df_final_result_year.append(df_result_year_l)
 
-osu_wins = np.array([[22.10, 22.62, 124.8, 121.7, 102.7, 99.0, 69.9, 62.5,
-                     -0.056, -0.031, 13.97, 9.68, 111.6, 109.2, 97.6, 99.5]])
+df_final_result_year = df_final_result_year.dropna()
 
-X = df_result_year[x_values]
-for yval in y_values:
-    y = df_result_year[yval]
-    reg = linear_model.BayesianRidge()
-    reg.fit(X, y)
-    print 'Y Value: {} COEF: {}'.format(yval, reg.coef_)
-    print 'Michigan Wins: {}'.format(reg.predict(mich_wins))
-    print 'OSU Wins: {}'.format(reg.predict(osu_wins))
+y_values = ['Score']
 
-X = df_result_year[x_values]
-for yval in y_values:
-    y = df_result_year[yval]
-    clf = RandomForestClassifier(n_estimators=1000)
+values = ['AdjEM', 'AdjO', 'AdjD', 'AdjT', 'Luck', 'AdjEM.1', 'OppO', 'OppD']
+x_values = ['W' + val for val in values] + ['L' + val for val in values]
+
+
+def get_team_input(df, team):
+    return np.array(df[df['Team_Name']==team][values])
+
+def regression_fit(x_values, y_values):
+    X = df_final_result_year[x_values]
+    y = df_final_result_year[y_values]
+    clf = RandomForestRegressor(n_estimators=1000)
     clf.fit(X, y)
-    print 'Y Value: {} COEF: {}'.format(yval, clf.score)
-    print 'Michigan Wins: {}'.format(clf.predict(mich_wins).reshape(-1, 1))
-    print 'OSU Wins: {}'.format(clf.predict(osu_wins).reshape(-1, 1))
+    return clf
+
+team_1 = get_team_input(df_kp, 'Michgan')
+team_2 = get_team_input(df_kp, 'Oklahoma St')
+
+input_1 = team_1 + team_2
+
+print 'Michigan Score: {}'.format(clf.predict(mich_input).reshape(-1, 1))
+print 'OSU Score: {}'.format(clf.predict(osu_wins).reshape(-1, 1))
