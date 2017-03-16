@@ -3,7 +3,6 @@ import logging
 import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor
-from sklearn import linear_model
 import utils.scraper as scr
 
 logging.basicConfig(stream=sys.stdout,
@@ -63,21 +62,25 @@ y_values = ['Score']
 values = ['AdjEM', 'AdjO', 'AdjD', 'AdjT', 'Luck', 'AdjEM.1', 'OppO', 'OppD']
 x_values = ['W' + val for val in values] + ['L' + val for val in values]
 
-
 def get_team_input(df, team):
     return np.array(df[df['Team_Name']==team][values])
 
 def regression_fit(x_values, y_values):
+
     X = df_final_result_year[x_values]
     y = df_final_result_year[y_values]
-    clf = RandomForestRegressor(n_estimators=1000)
-    clf.fit(X, y)
-    return clf
+    model_fit = RandomForestRegressor(n_estimators=1000)
+    model_fit.fit(X, y)
+    return model_fit
 
-team_1 = get_team_input(df_kp, 'Michgan')
-team_2 = get_team_input(df_kp, 'Oklahoma St')
 
-input_1 = team_1 + team_2
+def score_predictor(clf, team_name_1, team_name_2):
+    team_1 = get_team_input(df_kp, team_name_1)
+    team_2 = get_team_input(df_kp, team_name_2)
+    input_1 = np.append(team_1, team_2)
+    input_2 = np.append(team_2, team_1)
+    print '{} Score: {}'.format(team_name_1, clf.predict([input_1]))
+    print '{} Score: {}'.format(team_name_2, clf.predict([input_2]))
 
-print 'Michigan Score: {}'.format(clf.predict(mich_input).reshape(-1, 1))
-print 'OSU Score: {}'.format(clf.predict(osu_wins).reshape(-1, 1))
+clf = regression_fit(x_values, y_values)
+score_predictor(clf, 'Michigan', 'Louisville')
