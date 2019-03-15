@@ -1,19 +1,15 @@
-import requests
-import logging
 import os
-import pandas as pd
+import logging
+import requests
 import numpy as np
+import pandas as pd
+import mmlm.utils as utl
 from bs4 import BeautifulSoup
-
-
-def dir_check(directory):
-    if not os.path.isdir(directory):
-        os.makedirs(directory)
 
 
 class WebTable(object):
     def __init__(self, url):
-        logging.info('Finding tables at ' + url)
+        logging.info('Finding tables at {}'.format(url))
         self.url = url
         self.df = pd.DataFrame()
         r = requests.get(self.url)
@@ -68,11 +64,11 @@ class WebTable(object):
     def df_remove_period(self):
         self.df['Team'] = self.df['Team'].str.replace('.', '')
 
-    def team_translation(self):
+    def team_translation(self, team_col='TeamName'):
         tt = pd.read_csv('raw/team_translate.csv')
         self.df = self.df.merge(tt, on='Team', how='left')
-        self.df['Team_Name'] = np.where(self.df['Team_Name'].isnull(),
-                                        self.df['Team'], self.df['Team_Name'])
+        self.df[team_col] = np.where(self.df[team_col].isnull(),
+                                     self.df['Team'], self.df[team_col])
 
     def table_to_df(self):
         self.body_to_df()
@@ -82,6 +78,7 @@ class WebTable(object):
         self.team_translation()
 
     def df_to_csv(self, file_path, file_name):
-        logging.info('Writing df to ' + file_path + '/' + file_name)
-        dir_check(file_path)
-        self.df.to_csv(file_path + '/' + file_name, index=False)
+        full_file_name = os.path.join(file_path, file_name)
+        logging.info('Writing df to {}'.format(full_file_name))
+        utl.dir_check(file_path)
+        self.df.to_csv(full_file_name, index=False)
