@@ -7,6 +7,38 @@ import mmlm.utils as utl
 from bs4 import BeautifulSoup
 
 
+class ImportHandler(object):
+    def __init__(self, year):
+        self.year = year
+        self.file_path = 'raw'
+        self.url = self.get_kp_url(self.year)
+        self.file_name = self.get_kp_filename(self.year)
+        self.full_file_name = os.path.join(self.file_path, self.file_name)
+        self.df = pd.DataFrame()
+        if os.path.exists(self.full_file_name):
+            self.df = pd.read_csv(self.full_file_name)
+
+    @staticmethod
+    def get_kp_url(year):
+        return 'http://kenpom.com/index.php?y={}'.format(year)
+
+    @staticmethod
+    def get_kp_filename(year):
+        return 'kenpom{}.csv'.format(year)
+
+    def scrape_website_to_df(self):
+        table = WebTable(self.url)
+        table.table_to_df()
+        table.df_to_csv(file_path='raw', file_name=self.file_name)
+        self.df = table.df
+
+    def add_ids_to_df(self, team_id_csv='raw/teams.csv', name_col='TeamName'):
+        if self.df.empty:
+            self.df = pd.read_csv(os.path.join('raw', self.file_name))
+        team_id_df = pd.read_csv(team_id_csv)
+        self.df = pd.merge(self.df, team_id_df, how='left', on=name_col)
+
+
 class WebTable(object):
     def __init__(self, url):
         logging.info('Finding tables at {}'.format(url))
@@ -37,14 +69,16 @@ class WebTable(object):
         self.get_table_head()
         self.get_table_rows(self.table_head)
         cols = self.rows[1].find_all('th')
-        x = 0
-        for col in cols:
+        for idx, col in enumerate(cols):
             col = col.text.strip()
+            if 8 < idx < 12:
+                col += '_SOS'
+            if idx == 12:
+                col += '_NCSOS'
             self.column_names.append(col)
-            if x > 4:
+            if idx > 4:
                 col += '- Rank'
                 self.column_names.append(col)
-            x += 1
         self.df.columns = self.column_names
 
     def body_to_df(self):
