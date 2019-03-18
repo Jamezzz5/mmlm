@@ -38,7 +38,8 @@ class Teams(object):
     def __init__(self, file_name='raw/teams.csv'):
         self.file_name = file_name
         self.df = self.load_teams_df()
-        self.teams = self.set_teams_dict()
+        self.teams = {}
+        # self.teams = self.set_teams_dict()
 
     def load_teams_df(self):
         df = pd.read_csv(self.file_name)
@@ -60,10 +61,10 @@ class Teams(object):
 
     def set_teams(self):
         for team in self.df[self.Team].values:
-            team_dict = self.df[self.df[Teams.TeamName] == team].to_dict()
+            team_dict = self.df[self.df[Teams.TeamName] == team].to_dict(orient='records')[0]
             tm = Team(team_dict)
             tm.input = self.get_team_input(self.df, team)
-            self.teams[self.Team] = tm
+            self.teams[team] = tm
         return self.teams
 
 
