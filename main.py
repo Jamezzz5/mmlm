@@ -29,8 +29,8 @@ def main():
         ih.scrape_website_to_df()
     teams = bb.Teams()
     teams.add_kp_stats(ih.df)
-    szn = bb.Season(year=args.year)
-    szn.add_teams(teams.df)
+    szn = bb.Season(year=args.year, teams=teams, model='BayesianRidge')
+    szn.model_season()
 
 
 if __name__ == '__main__':

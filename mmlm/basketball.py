@@ -1,12 +1,14 @@
+import itertools
 import numpy as np
 import pandas as pd
+import mmlm.model as md
 
 
 class Team(object):
     def __init__(self, team_dict):
         for k in team_dict:
             setattr(self, k, team_dict[k])
-
+        self.games = {}
 
 class Teams(object):
     Rk = 'Rk'
@@ -60,8 +62,9 @@ class Teams(object):
         return np.array(df[df[Teams.TeamName] == team][Teams.values])
 
     def set_teams(self):
-        for team in self.df[self.Team].values:
-            team_dict = self.df[self.df[Teams.TeamName] == team].to_dict(orient='records')[0]
+        for team in self.df[self.TeamName].values:
+            team_dict = self.df[self.df[Teams.TeamName] == team]
+            team_dict = team_dict.to_dict(orient='records')[0]
             tm = Team(team_dict)
             tm.input = self.get_team_input(self.df, team)
             self.teams[team] = tm
@@ -104,11 +107,15 @@ class Season(object):
     LBlk = 'LBlk'
     LPF = 'LPF'
 
-    def __init__(self, year=None,
-                 file_name='raw/regularseasondetailedresults.csv'):
+    def __init__(self, year=None, model=None, teams=None,
+                 file_name='raw/Prelim2019_RegularSeasonDetailedResults.csv'):
         self.year = year
         self.file_name = file_name
+        self.model = model
+        self.teams = teams
         self.df = self.load_season_details()
+        if teams:
+            self.add_teams()
 
     def load_season_details(self):
         df = pd.read_csv(self.file_name)
@@ -116,10 +123,31 @@ class Season(object):
             df = df[df[self.Season] == int(self.year)]
         return df
 
-    def add_teams(self, team_df):
+    def add_teams(self):
         for pre in ['W', 'L']:
-            tdf = team_df[:].copy()
+            tdf = self.teams.df[:].copy()
             tdf.columns = ['{}{}'.format(pre, col) for col in tdf.columns]
             merge_col = '{}{}'.format(pre, Teams.TeamID)
             self.df = pd.merge(self.df, tdf, how='left', on=merge_col)
         self.df = self.df.dropna()
+
+    def model_season(self):
+        y_cols = [self.WScore]
+        values = [Teams.values][0]
+        x_cols = (['W{}'.format(col) for col in values] +
+                  ['L{}'.format(col) for col in values])
+        self.model = md.Model(self.df, self.model, x_cols, y_cols)
+        self.simulate_season()
+
+    def simulate_season(self):
+        team_names = self.teams.df[Teams.TeamName].values
+        games = [x for x in itertools.combinations(team_names, 2)]
+        for game in games:
+            try:
+                scores = self.model.score_predictor(game[0], game[1], self.teams)
+                game_dict = {game[0]: scores[0],
+                             game[1]: scores[1]}
+                self.teams.teams[game[0]].games[game[1]] = game_dict
+                self.teams.teams[game[1]].games[game[0]] = game_dict
+            except:
+                continue
