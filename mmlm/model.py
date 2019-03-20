@@ -12,6 +12,8 @@ class Model(object):
         self.df = df
         self.x_cols = x_cols
         self.y_cols = y_cols
+        self.x_vals = None
+        self.y_vals = None
         self.reg = self.set_regressor(clf)
         self.fit = self.regression_fit()
 
@@ -27,14 +29,11 @@ class Model(object):
             reg = MLPRegressor
         return reg
 
-    def get_team_input(self, df, team):
-        return np.array(df[df['TeamName'] == team][self.x_cols])
-
     def regression_fit(self):
-        x = self.df[self.x_cols]
-        y = self.df[self.y_cols]
+        self.x_vals = self.df[self.x_cols]
+        self.y_vals = self.df[self.y_cols]
         fit = self.reg()
-        fit.fit(x, y)
+        fit.fit(self.x_vals, self.y_vals)
         return fit
 
     def score_predictor(self, team_name_1, team_name_2, teams):

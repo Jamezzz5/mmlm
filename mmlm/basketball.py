@@ -10,6 +10,7 @@ class Team(object):
             setattr(self, k, team_dict[k])
         self.games = {}
 
+
 class Teams(object):
     Rk = 'Rk'
     Team = 'Team'
@@ -41,7 +42,6 @@ class Teams(object):
         self.file_name = file_name
         self.df = self.load_teams_df()
         self.teams = {}
-        # self.teams = self.set_teams_dict()
 
     def load_teams_df(self):
         df = pd.read_csv(self.file_name)
@@ -55,7 +55,14 @@ class Teams(object):
 
     def add_kp_stats(self, df_kp):
         self.df = pd.merge(df_kp, self.df, how='left', on=self.TeamName)
+        self.normalize_x()
         self.teams = self.set_teams()
+
+    def normalize_x(self):
+        for col in self.values:
+            min_v = min(self.df[col])
+            max_v = max(self.df[col])
+            self.df[col] = ((self.df[col] - min_v) / (max_v - min_v))
 
     @staticmethod
     def get_team_input(df, team):
@@ -132,8 +139,8 @@ class Season(object):
         self.df = self.df.dropna()
 
     def model_season(self):
-        y_cols = [self.WScore]
-        values = [Teams.values][0]
+        y_cols = [self.WScore, self.LScore]
+        values = Teams.values
         x_cols = (['W{}'.format(col) for col in values] +
                   ['L{}'.format(col) for col in values])
         self.model = md.Model(self.df, self.model, x_cols, y_cols)
@@ -143,11 +150,7 @@ class Season(object):
         team_names = self.teams.df[Teams.TeamName].values
         games = [x for x in itertools.combinations(team_names, 2)]
         for game in games:
-            try:
-                scores = self.model.score_predictor(game[0], game[1], self.teams)
-                game_dict = {game[0]: scores[0],
-                             game[1]: scores[1]}
-                self.teams.teams[game[0]].games[game[1]] = game_dict
-                self.teams.teams[game[1]].games[game[0]] = game_dict
-            except:
-                continue
+            scores = self.model.score_predictor(game[0], game[1], self.teams)
+            game_dict = {game[0]: scores[0], game[1]: scores[1]}
+            self.teams.teams[game[0]].games[game[1]] = game_dict
+            self.teams.teams[game[1]].games[game[0]] = game_dict
