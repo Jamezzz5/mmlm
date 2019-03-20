@@ -39,10 +39,8 @@ class Model(object):
     def score_predictor(self, team_name_1, team_name_2, teams):
         team_1 = teams.teams[team_name_1].input
         team_2 = teams.teams[team_name_2].input
-        input_1 = np.append(team_1, team_2)
-        input_2 = np.append(team_2, team_1)
-        input_1_val = self.fit.predict([input_1])
-        input_2_val = self.fit.predict([input_2])
-        logging.info('{} Score: {}'.format(team_name_1, input_1_val))
-        logging.info('{} Score: {}'.format(team_name_2, input_2_val))
-        return [input_1_val, input_2_val]
+        inpt = np.append(team_1, team_2)
+        input_val = self.fit.predict([inpt])
+        logging.info('{} Score: {}'.format(team_name_1, input_val[0][0]))
+        logging.info('{} Score: {}'.format(team_name_2, input_val[0][1]))
+        return [input_val[0][0], input_val[0][1]]

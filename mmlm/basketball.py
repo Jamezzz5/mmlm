@@ -1,3 +1,4 @@
+import random
 import itertools
 import numpy as np
 import pandas as pd
@@ -113,6 +114,8 @@ class Season(object):
     LStl = 'LStl'
     LBlk = 'LBlk'
     LPF = 'LPF'
+    AScore = 'AScore'
+    BScore = 'BScore'
 
     def __init__(self, year=None, model=None, teams=None,
                  file_name='raw/Prelim2019_RegularSeasonDetailedResults.csv'):
@@ -138,17 +141,35 @@ class Season(object):
             self.df = pd.merge(self.df, tdf, how='left', on=merge_col)
         self.df = self.df.dropna()
 
+    def randomize_cols(self, values, seed=False):
+        if seed:
+            np.random.seed(0)
+        self.df['rnd'] = np.random.randint(2, size=len(self.df.index))
+        c_d = {}
+        for col in values:
+            for x in ['A', 'B', 'W', 'L']:
+                c_d[x] = '{}{}'.format(x, col)
+            mask = self.df['rnd'] == 1
+            self.df[c_d['A']] = np.where(mask,
+                                         self.df[c_d['W']], self.df[c_d['L']])
+            self.df[c_d['B']] = np.where(mask,
+                                         self.df[c_d['L']], self.df[c_d['W']])
+        return self.df
+
     def model_season(self):
-        y_cols = [self.WScore, self.LScore]
-        values = Teams.values
-        x_cols = (['W{}'.format(col) for col in values] +
-                  ['L{}'.format(col) for col in values])
+        cols = Teams.values
+        self.df = self.randomize_cols(values=cols + ['Score'])
+        y_cols = [self.AScore, self.BScore]
+        x_cols = (['A{}'.format(col) for col in cols] +
+                  ['B{}'.format(col) for col in cols])
         self.model = md.Model(self.df, self.model, x_cols, y_cols)
         self.simulate_season()
 
     def simulate_season(self):
         team_names = self.teams.df[Teams.TeamName].values
+        np.random.shuffle(team_names)
         games = [x for x in itertools.combinations(team_names, 2)]
+        random.shuffle(games)
         for game in games:
             scores = self.model.score_predictor(game[0], game[1], self.teams)
             game_dict = {game[0]: scores[0], game[1]: scores[1]}
