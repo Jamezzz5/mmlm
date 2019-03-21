@@ -1,3 +1,4 @@
+import os
 import random
 import itertools
 import numpy as np
@@ -117,12 +118,13 @@ class Season(object):
     AScore = 'AScore'
     BScore = 'BScore'
 
-    def __init__(self, year=None, model=None, teams=None,
+    def __init__(self, year=None, model_name=None, teams=None,
                  file_name='raw/Prelim2019_RegularSeasonDetailedResults.csv'):
         self.year = year
         self.file_name = file_name
-        self.model = model
+        self.model_name = model_name
         self.teams = teams
+        self.model = None
         self.df = self.load_season_details()
         if teams:
             self.add_teams()
@@ -145,25 +147,28 @@ class Season(object):
         if seed:
             np.random.seed(0)
         self.df['rnd'] = np.random.randint(2, size=len(self.df.index))
-        c_d = {}
+        cd = {}
         for col in values:
             for x in ['A', 'B', 'W', 'L']:
-                c_d[x] = '{}{}'.format(x, col)
+                cd[x] = '{}{}'.format(x, col)
             mask = self.df['rnd'] == 1
-            self.df[c_d['A']] = np.where(mask,
-                                         self.df[c_d['W']], self.df[c_d['L']])
-            self.df[c_d['B']] = np.where(mask,
-                                         self.df[c_d['L']], self.df[c_d['W']])
+            self.df[cd['A']] = np.where(mask,
+                                        self.df[cd['W']], self.df[cd['L']])
+            self.df[cd['B']] = np.where(mask,
+                                        self.df[cd['L']], self.df[cd['W']])
         return self.df
 
     def model_season(self):
+        self.set_season_model()
+        self.simulate_season()
+
+    def set_season_model(self):
         cols = Teams.values
         self.df = self.randomize_cols(values=cols + ['Score'])
         y_cols = [self.AScore, self.BScore]
         x_cols = (['A{}'.format(col) for col in cols] +
                   ['B{}'.format(col) for col in cols])
-        self.model = md.Model(self.df, self.model, x_cols, y_cols)
-        self.simulate_season()
+        self.model = md.Model(self.df, self.model_name, x_cols, y_cols, test=True)
 
     def simulate_season(self):
         team_names = self.teams.df[Teams.TeamName].values
@@ -171,7 +176,33 @@ class Season(object):
         games = [x for x in itertools.combinations(team_names, 2)]
         random.shuffle(games)
         for game in games:
-            scores = self.model.score_predictor(game[0], game[1], self.teams)
-            game_dict = {game[0]: scores[0], game[1]: scores[1]}
+            s1, s2, p1, p2 = self.model.score_predictor(game[0], game[1],
+                                                        self.teams)
+            game_dict = {game[0]: s1, game[1]: s2, 'p': p1}
             self.teams.teams[game[0]].games[game[1]] = game_dict
+            game_dict = {game[0]: s1, game[1]: s2, 'p': p2}
             self.teams.teams[game[1]].games[game[0]] = game_dict
+        self.generate_submission_file()
+
+    def generate_submission_file(self):
+        self.teams.df[Teams.TeamID] = (self.teams.df[Teams.TeamID].fillna(0).
+                                       astype('int'))
+        team_map = self.teams.df[[Teams.TeamName, Teams.TeamID]]
+        team_map = team_map.set_index([Teams.TeamID]).to_dict(orient='dict')
+        df = pd.read_csv('raw/SamplesubmissionStage2.csv')
+        df = df.join(df['ID'].str.split('_', expand=True))
+        for col in [1, 2]:
+            df[col] = df[col].astype('int').map(team_map[Teams.TeamName])
+        match_dict = df[[1, 2]].to_dict('index')
+        for x in match_dict:
+            team_1 = match_dict[x][1]
+            team_2 = match_dict[x][2]
+            df.iloc[x, 1] = self.teams.teams[team_1].games[team_2]['p']
+        file_name = '{}_{}.csv'.format(self.year, self.model_name)
+        file_name = os.path.join('pred', file_name)
+        df[['ID', 'Pred']].to_csv(file_name, index=False)
+
+
+class Game(object):
+    def __init__(self):
+        pass
